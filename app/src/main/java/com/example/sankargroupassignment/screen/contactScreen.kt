@@ -19,7 +19,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonColors
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
@@ -38,41 +37,37 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import com.example.sankargroupassignment.appViewModel
-import com.example.sankargroupassignment.models.callLogItem
+import com.example.sankargroupassignment.models.contactItem
 
 @Composable
-fun CallHistoryScreen(viewModel: appViewModel) {
-    val state by viewModel.stateFlow.collectAsState()
+fun ContactScreen(viewModel: appViewModel) {
+    val state by viewModel.ContactstateFlow.collectAsState()
     val context = LocalContext.current
-    var activity = context.findActivity()
+    val activity = context.findActivity()
 
 
     var hasPermission by remember {
-        mutableStateOf(
-            ContextCompat.checkSelfPermission(
-                context, 
-                Manifest.permission.READ_CALL_LOG
-            ) == PackageManager.PERMISSION_GRANTED
-        )
+        mutableStateOf(ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CONTACTS) == PackageManager.PERMISSION_GRANTED)
     }
 
     val permissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission()
-    ) { isGranted ->
-        if (isGranted) {
-            hasPermission = true
-        } else {
-            Toast.makeText(context, "Permission not granted", Toast.LENGTH_LONG).show()
+        contract = ActivityResultContracts.RequestPermission(),
+        onResult = { isGranted ->
+            if (isGranted) {
+                hasPermission = true
+            } else {
+                Toast.makeText(context, "Permission not granted , please allow us to read contacts", Toast.LENGTH_LONG).show()
+            }
         }
-    }
+    )
 
-    // Whenever hasPermission changes to true, load the logs
+
     LaunchedEffect(hasPermission) {
         if (hasPermission) {
-            viewModel.readCallLogs()
+            viewModel.readContacts()
         }
         else{
-            permissionLauncher.launch(Manifest.permission.READ_CALL_LOG)
+            permissionLauncher.launch(Manifest.permission.READ_CONTACTS)
         }
     }
 
@@ -80,23 +75,22 @@ fun CallHistoryScreen(viewModel: appViewModel) {
 
         when {
             state.Loading -> {
-                Box(Modifier.fillMaxSize(), Alignment.Center) {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator()
                 }
             }
             state.error != null -> {
-                Box(Modifier.fillMaxSize(), Alignment.Center) {
-                    Text("error : ${state.error}")
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text("Error: ${state.error}")
                 }
             }
             else -> {
-                val items = state.success as? List<callLogItem>
-                
+                val items = state.success
                 if (items != null) {
                     LazyColumn(modifier = Modifier.fillMaxSize().padding(15.dp)) {
-                        items.forEach { item ->
+                        items.forEach {
                             item {
-                                singleItem(item,activity!!)
+                                singleContactItem(it, activity!!)
                                 Spacer(modifier = Modifier.height(10.dp))
                             }
                         }
@@ -107,39 +101,26 @@ fun CallHistoryScreen(viewModel: appViewModel) {
     } else {
 
         Column(
-            modifier = Modifier.fillMaxSize(), 
-            horizontalAlignment = Alignment.CenterHorizontally, 
-            verticalArrangement = Arrangement.Center
+            modifier = Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center
         ) {
-            Text("To watch call History provide us permission to read call logs")
-            Button(onClick = { permissionLauncher.launch(Manifest.permission.READ_CALL_LOG) }) {
+            Text("To watch contacts provide us permission to read contacts")
+            Button(onClick = { permissionLauncher.launch(Manifest.permission.READ_CONTACTS) }) {
                 Text("Allow Permission")
             }
-            
+
 
         }
     }
 }
 
 @Composable
-fun singleItem(item: callLogItem,activity: Activity) {
+fun singleContactItem(item: contactItem, activity: Activity) {
     Card(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(color = Color.LightGray)) {
-        Column(modifier = Modifier.padding(8.dp)) {
+        Column(modifier = Modifier.fillMaxWidth().padding(8.dp)) { // Added padding for better visuals
             Text(item.name.toString())
-            Text(item.phoneNumber)
-            Text(item.Date)
-            Text(item.callType)
-            Text(item.duration)
-
-            Button(onClick = {
-                onCall(activity!!,item.phoneNumber.toString())
-            }, colors = ButtonColors(
-                contentColor = Color.White,
-                containerColor = Color.Green,
-                disabledContainerColor = Color.Green,
-                disabledContentColor =  Color.White,
-            )) {
-                Text("CALL")
+            Text(item.number)
+            Button(onClick = { onCall(activity, item.number.toString()) }) {
+                Text("call")
             }
         }
     }
